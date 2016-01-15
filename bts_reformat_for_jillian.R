@@ -133,12 +133,21 @@ with(dat4, unique(site))
 with(fullDat, unique(site))
 
 
-
-
-unique(fullDat$study_sub_site)
+with(dat4, unique(study_sub_site))
+with(fullDat, unique(study_sub_site))
 
 # Rename
 master_details <- dat4
+head(master_details)
 
+##### MERGE DETAILS WITH RICHNESS DATA #####
+names(master_details)
+names(fullDat)
 
+# drop redundant columns in one dataset
+fullDat2 <- fullDat %>% select(-studyName, - studySub, -site)
 
+master <- left_join(fullDat2, master_details, by = "study_sub_site")
+names(master)
+
+write.csv(master, './output/master.csv')
