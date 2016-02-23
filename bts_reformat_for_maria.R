@@ -3,6 +3,8 @@
 # Author: Robin Elahi
 # Date: 150221
 #################################################
+# Change Log
+# 150223 - reformatted data again
 
 rm(list=ls(all=TRUE)) # removes all previous material from R's memory
 
@@ -25,6 +27,7 @@ head(fullDat)
 
 fullDat$study_sub_site <- with(fullDat, paste(studyName, studySub, site, sep = "-"))
 unique(fullDat$study_sub_site)
+unique(fullDat$studyName)
 
 ##### STUDIES #####
 studies <- read.csv("./data/studyNameList.csv", header=TRUE, na.strings="NA") 
@@ -38,11 +41,11 @@ head(studies)
 
 ##### SUB-STUDIES #####
 subStudies <- read.csv("./data/studySubList.csv", header=TRUE, na.strings="NA")
-
+names(subStudies)
 # Select columns and rename
 subStudies <- subStudies %>%
   select(studyName:Descriptor.of.Taxa.Sampled, Vis:PltN, SiAreaCalc, 
-         SiLinearExtentUnits)
+         SiLinearExtentUnits, RepeatType)
 names(subStudies)
 
 ##### SITES #####
@@ -52,15 +55,7 @@ names(sites)
 # Select columns and rename
 sites <- sites %>% 
   select(studyName, site, Event, Driver, Prediction, EventDate1, EventDate2, 
-         Lat, Long) %>%
-  rename(Event_type = Driver)
-head(sites)
-
-# Create 'A priori' column
-sites$A_priori <- with(sites, ifelse(Prediction == "none", "No", "Yes"))
-
-# Modify event column
-sites$Event <- with(sites, ifelse(Event == "yes", "Yes", "No"))
+         Lat, Long, Depth_m) 
 head(sites)
 
 ### Create 'Year of Event' column
@@ -81,34 +76,33 @@ sites$Year_of_Event <- with(sites, ifelse(is.na(event2yr) == "TRUE",
                                           event1yr, 
                                           paste(event1yr, ",", event2yr)))
 head(sites)
+unique(sites$Event_type)
 
 # select new columns
 sites2 <- sites %>%
-  select(studyName, site, Event, Event_type, Lat, Long, A_priori, Year_of_Event)
+  select(studyName, site, Event, Driver, Lat, Long, Year_of_Event, Depth_m)
 head(sites2)
 
 ##### MERGE STUDIES, SUB-STUDIES, SITES #####
-head(studies)
-head(subStudies)
-head(sites2)
-
-names(studies)
-names(subStudies)
-names(sites2)
-
 ### Merge studies and sub-studies
 dat1 <- right_join(studies, subStudies, by = "studyName")
 head(dat1)
 
 dat2 <- right_join(studies, sites2, by = "studyName") %>%
-  select(studyName, site:Year_of_Event)
+  select(studyName, site:Depth_m)
 dat2$study_site <- with(dat2, paste(studyName, site, sep = "-"))
 head(dat2)
 
 dat3 <- right_join(dat1, dat2, by = "studyName")
 head(dat3)
 
-dat3$study_sub_site <- with(dat3, paste(studyName, studySub, site, sep = "-"))
+# GSUB to switch BirkeSC to SC
+unique(dat3$site)
+site2 <- dat3$site
+dat3$Site <- gsub("BirkeSC", "SC", site2)
+dat3 %>% filter(crap2 == "SC")
+
+dat3$study_sub_site <- with(dat3, paste(studyName, studySub, Site, sep = "-"))
 unique(dat3$study_sub_site)
 
 # remove irrelevant studies not used in CB paper
@@ -127,7 +121,6 @@ dat4 <- droplevels(dat4)
 with(dat4, unique(studyName))
 with(fullDat, unique(studyName))
 
-
 with(dat4, unique(studySub))
 with(fullDat, unique(studySub))
 
@@ -144,39 +137,135 @@ head(master_details)
 ##### MERGE DETAILS WITH RICHNESS DATA #####
 names(master_details)
 names(fullDat)
+fullDat$site
 
 # drop redundant columns in one dataset
-fullDat2 <- fullDat %>% select(-studyName, - studySub, -site)
+fullDat2 <- fullDat %>% select(-studyName, -site, -studySub)
 
 master <- left_join(fullDat2, master_details, by = "study_sub_site")
 names(master)
 
 ##### SUBSET COLUMNS FOR MARIA #####
-
-master2 <- master %>% select(studyName, Lat, Long, dateR, rich,
-                             Scale, studySub, study_sub_site, 
-                             site)
+master2 <- master %>% select(studyName, studySub, subSiteID, Lat, Long, dateR, 
+                             rich, div, Scale,  study_sub_site, Site, 
+                             Driver, Year_of_Event, Depth_m, RepeatType)
 
 master2 <- droplevels(master2)
 head(master2)
 
-unique(master2$studyName)
-unique(master2$studySub)
-unique(with(master2, paste(studyName, "_", studySub)))
-unique(master2$site)
-unique(master2$study_sub_site)
-
-
 master2$sample_id <- with(master2, 
-                          paste(studySub, "_", site, "_", Scale, sep = ""))
+                          paste(studySub, "_", Site, "_", Scale, sep = ""))
+
 unique(master2$sample_id)
 
 head(master2)
 
-master2 <- master2 %>% select(-study_sub_site) %>%
-  rename(study_id = studyName, lat = Lat, long = Long, 
-         date = dateR, species_richness = rich, scale = Scale)
+##### REMOVE GAMMA TIME-SERIES THAT ARE ALREADY REPRESENTED BY ALPHA #####
+names(master2)
+unique(master2$Scale)
+unique(master2$subSiteID)
+unique(master2$studySub)
+unique(master2$studyName)
 
-head(master2)
+master2 %>% filter(Scale == "alpha") %>% summarise(length = n())
+master2 %>% filter(Scale == "gamma") %>% summarise(length = n())
 
-write.csv(master2, './output/elahi_etal_sDiv.csv')
+study_scale_DF <- as.data.frame.matrix(with(master2, table(study_sub_site, Scale)))
+head(study_scale_DF)
+study_scale_DF$study_sub_site <- rownames(study_scale_DF)
+
+study_scale_DF$bothScales <- study_scale_DF$alpha > 0 & study_scale_DF$gamma > 0
+
+master3 <- left_join(master2, study_scale_DF, by = "study_sub_site")
+head(master3)
+
+master3$bothScales == "TRUE" & master3$Scale == "gamma"
+
+master3$remove <- ifelse(master3$bothScales == "TRUE" & 
+                           master3$Scale == "gamma", 'remove', 'keep')
+
+
+masterSub <- master3 %>% filter(remove == "keep") %>% droplevels()
+
+unique(masterSub$subSiteID)
+
+### Do the subsetting and renaming
+names(masterSub)
+
+# Database
+masterSub$Database <- "Elahi"
+
+# DepthElevation
+masterSub$dateR <- as.Date(as.character(masterSub$dateR))
+
+masterSub$Day <- as.numeric(format(masterSub$dateR, "%d"))
+masterSub$Month <- as.numeric(format(masterSub$dateR, "%m"))
+masterSub$Year <- as.numeric(format(masterSub$dateR, "%Y"))
+
+# Genus, Species
+masterSub$Genus <- NA
+masterSub$Species <- NA
+
+# ObsEventID
+names(masterSub)
+masterSub$ObsEventID <- with(masterSub, paste(studySub, Site, 
+                                              Lat, Long, "NA",
+                                              Year, Month, Day, sep = "_"))
+
+# ObsID
+names(masterSub)
+masterSub$ObsID <- with(masterSub, paste(studySub, Site, 
+                                              Lat, Long, "NA", sep = "_"))
+
+head(masterSub)
+
+# Treatment
+masterSub$Treatment <- NA
+
+names(masterSub)
+
+# Rename: CitationID, StudyID, Latitude, Longitude, DepthElevation
+
+masterSub2 <- masterSub %>% rename(CitationID = studyName,
+                                   StudyID = studySub, 
+                                   Latitude = Lat, 
+                                   Longitude = Long, 
+                                   DepthElevation = Depth_m)
+
+names(masterSub2)
+
+masterSub3 <- masterSub2 %>% select(Database, CitationID, StudyID, 
+                                    Site, Latitude, Longitude, 
+                                    DepthElevation, Day, Month, Year, 
+                                    Genus, Species, ObsEventID, ObsID, 
+                                    RepeatType, Treatment,
+                                    rich, div)
+
+head(masterSub3)
+
+### Put rich and div in one column (make dataset longer)
+# Can't use gather, because richness and div are not evenly distributed
+# So, split the datasets apart first
+
+
+richDat <- droplevels(masterSub3[complete.cases(masterSub3$rich), ])
+richDat <- richDat %>% rename(Value = rich) %>% select(-div)
+richDat$ValueType <- "Richness"
+divDat <- droplevels(masterSub3[complete.cases(masterSub3$div), ])
+divDat <- divDat %>% rename(Value = div) %>% select(-rich)
+divDat$ValueType <- "Shannon"
+
+names(richDat)
+names(divDat)
+
+### Now rbind it
+masterL <- rbind(richDat, divDat)
+head(masterL)
+
+unique(masterL$StudyID)
+unique(masterL$ObsID)
+
+summary(masterL)
+
+write.csv(masterL, "./output/elahi_biotime.csv")
+
