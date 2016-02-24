@@ -19,9 +19,32 @@ unique(fullDat$studyName)
 unique(fullDat$studySub)
 unique(fullDat$subSiteID)
 
+fullDat$observation <- with(fullDat, paste(subSiteID, dateR, sep = "_"))
+unique(fullDat$observation)
+
+# Note that table S4 did not have evenness, pull this from the evenness dataset I used in Mary's lab meeting
+evenDat <- read.csv("./data/evenDat3.csv", header=TRUE, na.strings="NA")
+names(evenDat)
+
+evenDat$dateR<-as.Date(evenDat$date.no, origin="1904-01-01")
+evenDat$observation <- with(evenDat, paste(subSiteID, dateR, sep = "_"))
+
+
+evenDat2 <- evenDat %>% select(observation, even)
+head(evenDat2)
+str(evenDat2)
+unique(evenDat2$observation)
+testDF <- left_join(fullDat, evenDat2)
+
+write.csv(testDF, './output/testDF.csv')
+
+
+
 # Select columns and rename
+fullDat <- testDF
+
 fullDat <- fullDat %>%
-  select(site, studySub, studyName, subSiteID, Scale, dateR, rich, div, 
+  select(site, studySub, studyName, subSiteID, Scale, dateR, rich, div, even,
          abund, AbundUnitsOrig)
 head(fullDat)
 
@@ -147,7 +170,7 @@ names(master)
 
 ##### SUBSET COLUMNS FOR MARIA #####
 master2 <- master %>% select(studyName, studySub, subSiteID, Lat, Long, dateR, 
-                             rich, div, abund, AbundUnitsOrig, Scale,  
+                             rich, div, even, abund, AbundUnitsOrig, Scale,  
                              study_sub_site, Site, 
                              Driver, Year_of_Event, Depth_m, RepeatType)
 
@@ -240,7 +263,7 @@ masterSub3 <- masterSub2 %>% select(Database, CitationID, StudyID,
                                     DepthElevation, Day, Month, Year, 
                                     Genus, Species, ObsEventID, ObsID, 
                                     RepeatType, Treatment,
-                                    rich, div, abund, 
+                                    rich, div, even, abund, 
                                     AbundUnitsOrig)
 
 head(masterSub3)
@@ -249,20 +272,26 @@ head(masterSub3)
 # Can't use gather, because richness and div are not evenly distributed
 # So, split the datasets apart first
 richDat <- droplevels(masterSub3[complete.cases(masterSub3$rich), ])
-richDat <- richDat %>% rename(Value = rich) %>% select(-div, -AbundUnitsOrig, -abund)
+richDat <- richDat %>% rename(Value = rich) %>% select(-div, -even, -AbundUnitsOrig, -abund)
 richDat$ValueType <- "richness"
 richDat$ValueUnits <- NA
 head(richDat)
 
 divDat <- droplevels(masterSub3[complete.cases(masterSub3$div), ])
-divDat <- divDat %>% rename(Value = div) %>% select(-rich, -AbundUnitsOrig, -abund)
+divDat <- divDat %>% rename(Value = div) %>% select(-rich, -even, -AbundUnitsOrig, -abund)
 divDat$ValueType <- "shannon"
 divDat$ValueUnits <- NA
 head(divDat)
 
+evenDat <- droplevels(masterSub3[complete.cases(masterSub3$even), ])
+evenDat <- evenDat %>% rename(Value = even) %>% select(-rich, -div, -AbundUnitsOrig, -abund)
+evenDat$ValueType <- "evenness"
+evenDat$ValueUnits <- NA
+head(evenDat)
+
 abundDat <- droplevels(masterSub3[complete.cases(masterSub3$abund), ])
 abundDat <- abundDat %>% rename(Value = abund, ValueUnits = AbundUnitsOrig) %>% 
-  select(-rich, -div)
+  select(-rich, -div, -even)
 
 unique(abundDat$ValueUnits)
 
@@ -287,10 +316,11 @@ abundDat$ValueType <- vt6
 
 names(richDat)
 names(divDat)
+names(evenDat)
 names(abundDat)
 
 ### Now rbind it
-masterL <- rbind(richDat, divDat, abundDat)
+masterL <- rbind(richDat, divDat, evenDat, abundDat)
 head(masterL)
 
 unique(masterL$StudyID)
