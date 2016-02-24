@@ -147,7 +147,8 @@ names(master)
 
 ##### SUBSET COLUMNS FOR MARIA #####
 master2 <- master %>% select(studyName, studySub, subSiteID, Lat, Long, dateR, 
-                             rich, div, Scale,  study_sub_site, Site, 
+                             rich, div, abund, AbundUnitsOrig, Scale,  
+                             study_sub_site, Site, 
                              Driver, Year_of_Event, Depth_m, RepeatType)
 
 master2 <- droplevels(master2)
@@ -239,27 +240,36 @@ masterSub3 <- masterSub2 %>% select(Database, CitationID, StudyID,
                                     DepthElevation, Day, Month, Year, 
                                     Genus, Species, ObsEventID, ObsID, 
                                     RepeatType, Treatment,
-                                    rich, div)
+                                    rich, div, abund, 
+                                    AbundUnitsOrig)
 
 head(masterSub3)
 
-### Put rich and div in one column (make dataset longer)
+### Put rich, div, abund in one column (make dataset longer)
 # Can't use gather, because richness and div are not evenly distributed
 # So, split the datasets apart first
 
 
 richDat <- droplevels(masterSub3[complete.cases(masterSub3$rich), ])
-richDat <- richDat %>% rename(Value = rich) %>% select(-div)
+richDat <- richDat %>% rename(Value = rich) %>% select(-div, -AbundUnitsOrig, -abund)
 richDat$ValueType <- "Richness"
+head(richDat)
+
 divDat <- droplevels(masterSub3[complete.cases(masterSub3$div), ])
-divDat <- divDat %>% rename(Value = div) %>% select(-rich)
+divDat <- divDat %>% rename(Value = div) %>% select(-rich, -AbundUnitsOrig, -abund)
 divDat$ValueType <- "Shannon"
+head(divDat)
+
+abundDat <- droplevels(masterSub3[complete.cases(masterSub3$abund), ])
+abundDat <- abundDat %>% rename(Value = abund, ValueType = AbundUnitsOrig) %>% 
+  select(-rich, -div)
 
 names(richDat)
 names(divDat)
+names(abundDat)
 
 ### Now rbind it
-masterL <- rbind(richDat, divDat)
+masterL <- rbind(richDat, divDat, abundDat)
 head(masterL)
 
 unique(masterL$StudyID)
