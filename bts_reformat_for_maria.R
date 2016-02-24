@@ -248,21 +248,42 @@ head(masterSub3)
 ### Put rich, div, abund in one column (make dataset longer)
 # Can't use gather, because richness and div are not evenly distributed
 # So, split the datasets apart first
-
-
 richDat <- droplevels(masterSub3[complete.cases(masterSub3$rich), ])
 richDat <- richDat %>% rename(Value = rich) %>% select(-div, -AbundUnitsOrig, -abund)
-richDat$ValueType <- "Richness"
+richDat$ValueType <- "richness"
+richDat$ValueUnits <- NA
 head(richDat)
 
 divDat <- droplevels(masterSub3[complete.cases(masterSub3$div), ])
 divDat <- divDat %>% rename(Value = div) %>% select(-rich, -AbundUnitsOrig, -abund)
-divDat$ValueType <- "Shannon"
+divDat$ValueType <- "shannon"
+divDat$ValueUnits <- NA
 head(divDat)
 
 abundDat <- droplevels(masterSub3[complete.cases(masterSub3$abund), ])
-abundDat <- abundDat %>% rename(Value = abund, ValueType = AbundUnitsOrig) %>% 
+abundDat <- abundDat %>% rename(Value = abund, ValueUnits = AbundUnitsOrig) %>% 
   select(-rich, -div)
+
+unique(abundDat$ValueUnits)
+
+ValueType <- abundDat$ValueUnits
+
+leftText <- function(x, n) {
+  substr(x, 1, n) 
+}
+
+vt2 <- leftText(ValueType, 5)
+unique(vt2)
+
+vt3 <- gsub("indiv", "abundance", vt2)
+vt4 <- gsub("Perce", "cover", vt3)
+vt5 <- gsub("metri", "biomass", vt4)
+vt6 <- gsub("kgPer", "biomass", vt5)
+
+unique(vt6)
+
+abundDat$ValueType <- vt6
+
 
 names(richDat)
 names(divDat)
@@ -274,8 +295,11 @@ head(masterL)
 
 unique(masterL$StudyID)
 unique(masterL$ObsID)
+unique(masterL$ValueType)
+unique(masterL$ValueUnits)
 
 summary(masterL)
 
-write.csv(masterL, "./output/elahi_biotime.csv")
+unique(masterL$ValueType)
 
+write.csv(masterL, "./output/elahi_biotime.csv")
