@@ -65,7 +65,10 @@ head(studies)
 ##### SUB-STUDIES #####
 subStudies <- read.csv("./data/studySubList.csv", header=TRUE, na.strings="NA")
 names(subStudies)
+unique(subStudies$Descriptor.of.Taxa.Sampled)
+
 # Select columns and rename
+names(subStudies)
 subStudies <- subStudies %>%
   select(studyName:Descriptor.of.Taxa.Sampled, Vis:PltN, SiAreaCalc, 
          SiLinearExtentUnits, RepeatType)
@@ -168,10 +171,12 @@ fullDat2 <- fullDat %>% select(-studyName, -site, -studySub)
 master <- left_join(fullDat2, master_details, by = "study_sub_site")
 names(master)
 
+master$Organism <- master$Descriptor.of.Taxa.Sampled
+
 ##### SUBSET COLUMNS FOR MARIA #####
 master2 <- master %>% select(studyName, studySub, subSiteID, Lat, Long, dateR, 
                              rich, div, even, abund, AbundUnitsOrig, Scale,  
-                             study_sub_site, Site, 
+                             study_sub_site, Site, Organism, 
                              Driver, Year_of_Event, Depth_m, RepeatType)
 
 master2 <- droplevels(master2)
@@ -264,7 +269,7 @@ masterSub3 <- masterSub2 %>% select(Database, CitationID, StudyID,
                                     Genus, Species, ObsEventID, ObsID, 
                                     RepeatType, Treatment,
                                     rich, div, even, abund, 
-                                    AbundUnitsOrig)
+                                    AbundUnitsOrig, Organism)
 
 head(masterSub3)
 
@@ -331,5 +336,33 @@ unique(masterL$ValueUnits)
 summary(masterL)
 
 unique(masterL$ValueType)
+
+# Add BioType column
+masterL$BioType <- 'marine'
+
+# Add Taxa column (to match sDiv format)
+# create new ecosystem column (with easier names)
+orgList <- unique(masterL$Organism)
+orgList
+
+taxaList <- c("Fish", "Fish", 
+              "Marine Invertebrates", "Benthos", 
+              "Marine Invertebrates", "Marine Invertebrates", 
+              "Marine Invertebrates", "Marine Invertebrates", 
+              "Benthos", "Foraminifera", 
+              "Benthos", "Marine Invertebrates", 
+              "Marine Plants", "Fish", 
+              "Marine Plants", "Marine Invertebrates", 
+              "Marine Invertebrates", "Marine Invertebrates")
+
+library(plyr)
+Taxa <- mapvalues(masterL$Organism, from = orgList, 
+                  to = taxaList)
+
+masterL$Taxa <- Taxa
+
+masterL %>% select(Organism, Taxa)
+
+head(masterL)
 
 write.csv(masterL, "./output/elahi_biotime.csv")
